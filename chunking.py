@@ -1,5 +1,5 @@
 import pygame as py 
-import time, random, math
+import time, random
 
 
 class Camera:
@@ -87,7 +87,7 @@ class Player(py.sprite.Sprite):
     def render(self, camera_offset):
         render_x = self.rect.x - camera_offset[0]
         render_y = self.rect.y - camera_offset[1]
-        game_surf.blit(self.image, (render_x, render_y))
+        screen.blit(self.image, (render_x, render_y))
 
     def update(self, delta_time):
         self.dt = delta_time
@@ -97,7 +97,6 @@ class Player(py.sprite.Sprite):
 py.init()
 
 screen = py.display.set_mode((1200, 720))
-game_surf = py.Surface(screen.get_size(), py.SRCALPHA)
 clock = py.time.Clock()
 
 font = py.font.Font(None, 32)
@@ -110,17 +109,18 @@ background = []
 chunks = {
     # x;y : [chunk tiles]
 }
-bg_chunks = {
-
-}
 chunk_size = 768, 432
 
 last_time = time.perf_counter()
 dt_setting = 60 
 dt = 0
-        
-for x in range(100):
-    for y in range(30):
+
+# size
+row = 100
+col = 30
+
+for x in range(row):
+    for y in range(col):
         tiles[str(x) + ';' + str(y)] = Tile((x, y), 48, random.choice([(155, 105, 50), (56, 214, 125)]))
         # print(str(x) + ';' + str(y))
 
@@ -146,52 +146,44 @@ while True:
         if event.type == py.QUIT:
             py.quit()
             exit()
-        
-        if event.type == py.MOUSEBUTTONDOWN:
-            if event.button == 4:
-                scroll = 10
-                game_surf = py.transform.scale(game_surf, (game_surf.get_size()[0] + scroll, game_surf.get_size()[1] + scroll))
-            if event.button == 5:
-                scroll = -10
-                game_surf = py.transform.scale(game_surf, (game_surf.get_size()[0] + scroll, game_surf.get_size()[1] + scroll))
-    
+
     screen.fill((30, 30, 30,))
-    game_surf.fill((50, 50, 50))
 
     camera.update(player, dt)
 
-    for paddle in water:
-        paddle.update(dt, player)
-        game_surf.blit(paddle.draw(camera.true_scroll), (0, 0), special_flags=py.BLEND_RGB_ADD)
-
     player.update(dt)
     for offset in [
-            str(player.rect.x // chunk_size[0] - 1) + ';' + str(player.rect.y // chunk_size[1] - 1),
-            str(player.rect.x // chunk_size[0] - 1) + ';' + str(player.rect.y // chunk_size[1]),
-            str(player.rect.x // chunk_size[0] - 1) + ';' + str(player.rect.y // chunk_size[1] + 1),
-            str(player.rect.x // chunk_size[0]) + ';' + str(player.rect.y // chunk_size[1] - 1),
-            str(player.rect.x // chunk_size[0]) + ';' + str(player.rect.y // chunk_size[1]),
-            str(player.rect.x // chunk_size[0]) + ';' + str(player.rect.y // chunk_size[1] + 1),
-            str(player.rect.x // chunk_size[0] + 1) + ';' + str(player.rect.y // chunk_size[1] - 1),
-            str(player.rect.x // chunk_size[0] + 1) + ';' + str(player.rect.y // chunk_size[1]),
-            str(player.rect.x // chunk_size[0] + 1) + ';' + str(player.rect.y // chunk_size[1] + 1)
+            str(player.rect.x // chunk_size[0] - 1) + ';' + str(player.rect.y // chunk_size[1] - 1), # topleft chunk
+            str(player.rect.x // chunk_size[0]) + ';' + str(player.rect.y // chunk_size[1] - 1), # top chunk
+            str(player.rect.x // chunk_size[0] + 1) + ';' + str(player.rect.y // chunk_size[1] - 1), # topright chunk
+
+            str(player.rect.x // chunk_size[0] - 1) + ';' + str(player.rect.y // chunk_size[1]), # left chunk
+            str(player.rect.x // chunk_size[0]) + ';' + str(player.rect.y // chunk_size[1]), # middle chunk
+            str(player.rect.x // chunk_size[0] + 1) + ';' + str(player.rect.y // chunk_size[1]), # right chunk
+
+            str(player.rect.x // chunk_size[0] - 1) + ';' + str(player.rect.y // chunk_size[1] + 1), # bottomleft chunk
+            str(player.rect.x // chunk_size[0]) + ';' + str(player.rect.y // chunk_size[1] + 1), # bottom chunk
+            str(player.rect.x // chunk_size[0] + 1) + ';' + str(player.rect.y // chunk_size[1] + 1) # bottomright chunk
             ]:
         try:
-            game_surf.blits([tile.render(camera.true_scroll) for tile in chunks[offset]])
+            screen.blits([tile.render(camera.true_scroll) for tile in chunks[offset]])
         except:
             pass
+    
+    # player collision with only tiles around player (chunks)
     try:
         player.move(chunks[str(player.rect.x // chunk_size[0]) + ';' + str(player.rect.y // chunk_size[1] + 1)])
     except:
-        pass
+        player.y += player.vel[1] * player.dt
+        player.rect.y = player.y
+
+        player.x += player.vel[0] * player.dt
+        player.rect.x = player.x
 
     player.render(camera.true_scroll)
 
-    game_surf.blit(font.render(f"FPS: {clock.get_fps():.1f}", True, 'white'), (10, 10))
-    game_surf.blit(font.render(f"Tiles: {len(tiles)}", True, 'white'), (10, 42))
-    
-    game_surf_rect = game_surf.get_rect(center=(screen.get_width()/2, screen.get_height()/2))
-    screen.blit(game_surf, game_surf_rect)
+    screen.blit(font.render(f"FPS: {clock.get_fps():.1f}", True, 'white'), (10, 10))
+    screen.blit(font.render(f"Tiles: {len(tiles)}", True, 'white'), (10, 42))
 
     py.display.flip()
     clock.tick(3000)
