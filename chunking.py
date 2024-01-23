@@ -94,54 +94,6 @@ class Player(py.sprite.Sprite):
         self.apply_gravity()
         self.controls()
 
-class Water:
-    def __init__(self, width, start_pos, size):
-        self.size = size
-        self.width = width * self.size
-        self.height = 3 * self.size
-        self.start_pos = start_pos[0] * self.size, start_pos[1] * self.size
-
-
-        self.springs = []
-        self.spread = 0.006
-
-        for i in range(self.start_pos[0], self.start_pos[0]+self.width+2, self.size//4):
-            self.springs.append([[i, self.start_pos[1]], 0]) # pos, vel
-    
-    def draw(self, camera_offset):
-        surf = py.Surface(screen.get_size(), py.SRCALPHA)
-        py.draw.lines(screen, 'white', False, [(spring[0][0] - camera_offset[0], spring[0][1] + self.size/2 - camera_offset[1]) for spring in self.springs], 5)
-        py.draw.polygon(screen, (50, 100, 150), [(self.start_pos[0] - camera_offset[0], self.start_pos[1] + self.size/2 + self.height - camera_offset[1])] + [(spring[0][0] - camera_offset[0], spring[0][1] + self.size/2 - camera_offset[1]) for spring in self.springs] + [(self.springs[-1][0][0] - camera_offset[0], self.start_pos[1] + self.size/2 + self.height - camera_offset[1])])
-        return surf
-
-    def update(self, delta_time, obj):
-        self.dt = delta_time
-
-        for data in self.springs:
-            rect = py.Rect(data[0], (25, 25))
-
-            if rect.collidepoint((obj.rect.centerx, obj.rect.bottom - self.size/2)):
-                if math.sqrt((data[0][1] - self.start_pos[1])**2) < self.size/3:
-                    data[0][1] += (obj.y - data[0][1]) * self.dt
-
-            else:
-                extension = data[0][1] - self.start_pos[1]
-                loss = -0.05 * data[1]
-
-                force = -0.005 * extension + loss
-                data[1] += force * self.dt # velocity
-
-                data[0][1] += data[1] * self.dt # y pos
-
-                # spreading
-                if self.springs.index(data) > 0:
-                    self.springs[self.springs.index(data) - 1][1] += self.spread * (self.springs[self.springs.index(data)][0][1] - self.springs[self.springs.index(data) - 1][0][1]) * self.dt
-                try:
-                    self.springs[self.springs.index(data) + 1][1] += self.spread * (self.springs[self.springs.index(data)][0][1] - self.springs[self.springs.index(data) + 1][0][1]) * self.dt
-                except:
-                    pass    
-
-
 py.init()
 
 screen = py.display.set_mode((1200, 720))
@@ -154,7 +106,6 @@ camera = Camera()
 player = Player((0, -5), 24)
 tiles = {}
 background = []
-water = []
 
 chunks = {
     # x;y : [chunk tiles]
