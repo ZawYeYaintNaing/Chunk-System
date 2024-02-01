@@ -1,6 +1,7 @@
 import pygame as py 
-import time, random
+import time, random, math, noise
 
+random.seed(10) 
 
 class Camera:
     def __init__(self):
@@ -49,9 +50,9 @@ class Player(py.sprite.Sprite):
     def controls(self):
         key = py.key.get_pressed()
         if key[py.K_d]:
-            self.vel[0] = 5
+            self.vel[0] = 15
         elif key[py.K_a]:
-            self.vel[0] = -5
+            self.vel[0] = -15
         else:
             self.vel[0] = 0
         
@@ -62,8 +63,8 @@ class Player(py.sprite.Sprite):
         self.y += self.vel[1] * self.dt
         self.rect.y = self.y
 
-        for chunk in chunks:
-            for tile in chunk:
+        for tiles in chunks:
+            for tile in tiles:
                 if tile.rect.colliderect(self.rect):
                     if self.vel[1] > 0:
                         self.y = tile.rect.y - self.rect.h
@@ -77,15 +78,14 @@ class Player(py.sprite.Sprite):
         self.x += self.vel[0] * self.dt
         self.rect.x = self.x
         
-        for chunk in chunks:
-            for tile in chunk:
+        for tiles in chunks:
+            for tile in tiles:
                 if tile.rect.colliderect(self.rect):
                     if self.vel[0] > 0:
                         self.x = tile.rect.x - self.rect.w
                     elif self.vel[0] < 0:
                         self.x = tile.rect.right
-
-        self.rect.x = self.x
+            self.rect.x = self.x
         
     def render(self, camera_offset):
         render_x = self.rect.x - camera_offset[0]
@@ -97,9 +97,32 @@ class Player(py.sprite.Sprite):
         self.apply_gravity()
         self.controls()
 
+def generate_chunk(offset, chunk_size):
+    offset = offset.split(';')
+    offset[0] = int(offset[0]) * chunk_size[0]
+    offset[1] = int(offset[1]) * chunk_size[1]
+
+    tiles = []
+    for x in range(chunk_size[0] // tile_size):
+        is_first_tile = True
+        for y in range(chunk_size[1] // tile_size):
+            color = random.choice([(155, 105, 50), (135, 75, 50)])
+            # if y < 1:
+            #     color = (56, 214, 125)
+
+            target_x = x + offset[0] // tile_size
+            target_y = y + offset[1] // tile_size 
+            height = int(noise.pnoise1(target_x * 0.1, repeat=99999) * 5)
+            if target_y > height:
+                if is_first_tile:
+                    color = (56, 214, 125)
+                    is_first_tile = False
+                tiles.append(Tile((target_x, target_y), tile_size, color))
+    return tiles
+
 py.init()
 
-screen = py.display.set_mode((1200, 720))
+screen = py.display.set_mode((1200, 720), py.RESIZABLE)
 clock = py.time.Clock()
 
 font = py.font.Font(None, 32)
@@ -107,30 +130,43 @@ font = py.font.Font(None, 32)
 camera = Camera()
 player = Player((0, -5), 24)
 tiles = {}
+background = []
+
+tile_size = 48
 
 chunks = {
     # x;y : [chunk tiles]
 }
-chunk_size = 768, 432
+chunk_size = 18 * tile_size, 16 * tile_size
 
 last_time = time.perf_counter()
 dt_setting = 60 
 dt = 0
 
 # size
-row = 100
-col = 30
+# row = 18
+# col = 16
 
-for x in range(row):
-    for y in range(col):
-        tiles[str(x) + ';' + str(y)] = Tile((x, y), 48, random.choice([(155, 105, 50), (56, 214, 125)]))
+# # for x in range(row):
+# #     for y in range(col):
+# #         color = random.choice([(155, 105, 50), (135, 75, 50)])
+# #         if y < 1:
+# #             color = (56, 214, 125)
+# #         tiles[str(x) + ';' + str(y)] = Tile((x, y), tile_size, color)
+# #         # print(str(x) + ';' + str(y))
 
-# pre organize chunk
-for loc in tiles:
-    x, y = tiles[loc].rect.x // chunk_size[0], tiles[loc].rect.y // chunk_size[1]
-    if str(x) + ';' + str(y) not in chunks:
-        chunks[str(x) + ';' + str(y)] = set()
-    chunks[str(x) + ';' + str(y)].add(tiles[loc])
+# #         # if random.randint(0, 100) == 0:
+# #         #     background.append(Tile((x, y-y//20), random.choice([48, 64, 128]), random.choice([(192, 168, 127), (56, 214, 125)])))
+
+# # count_tiles = len(tiles)
+
+# # pre organize chunk
+# for loc in tiles.copy():
+#     x, y = tiles[loc].rect.x // chunk_size[0], tiles[loc].rect.y // chunk_size[1]
+#     if str(x) + ';' + str(y) not in chunks:
+#         chunks[str(x) + ';' + str(y)] = set()
+#     chunks[str(x) + ';' + str(y)].add(tiles[loc])
+#     del tiles[loc]
 
 
 while True:
@@ -150,8 +186,7 @@ while True:
     camera.update(player, dt)
 
     player.update(dt)
-
-    neighbor_offsets = [
+    neighbor_chunk_offsets = [
             str(player.rect.x // chunk_size[0] - 1) + ';' + str(player.rect.y // chunk_size[1] - 1), # topleft chunk
             str(player.rect.x // chunk_size[0]) + ';' + str(player.rect.y // chunk_size[1] - 1), # top chunk
             str(player.rect.x // chunk_size[0] + 1) + ';' + str(player.rect.y // chunk_size[1] - 1), # topright chunk
@@ -164,14 +199,20 @@ while True:
             str(player.rect.x // chunk_size[0]) + ';' + str(player.rect.y // chunk_size[1] + 1), # bottom chunk
             str(player.rect.x // chunk_size[0] + 1) + ';' + str(player.rect.y // chunk_size[1] + 1) # bottomright chunk
             ]
+    
 
     collision_chunks = []
-    for offset in neighbor_offsets:
+    for offset in neighbor_chunk_offsets:
         try:
             screen.blits([tile.render(camera.true_scroll) for tile in chunks[offset]])
-        except:
-            pass
+        except KeyError:
+            if int(offset.split(';')[1]) > -1:
+                chunks[offset] = generate_chunk(offset, chunk_size)
+        
+        py.draw.rect(screen, 'white', py.Rect(int(offset.split(';')[0]) * chunk_size[0] - camera.true_scroll[0], int(offset.split(';')[1]) * chunk_size[1] - camera.true_scroll[1], chunk_size[0], chunk_size[1]), 1)
         collision_chunks.append(chunks.get(offset, []))
+    
+    [chunks.pop(keys_offset) for keys_offset in chunks.copy() if keys_offset not in neighbor_chunk_offsets] # remove unnecessary chunks to get stable memory usage
     
     # player collision with only tiles around player (chunks)
     player.move(collision_chunks)
@@ -179,7 +220,9 @@ while True:
     player.render(camera.true_scroll)
 
     screen.blit(font.render(f"FPS: {clock.get_fps():.1f}", True, 'white'), (10, 10))
-    screen.blit(font.render(f"Tiles: {len(tiles)}", True, 'white'), (10, 42))
+    screen.blit(font.render(f"Tiles: {len(chunks) * 16 * 16}", True, 'white'), (10, 42))
+    screen.blit(font.render(f"{player.rect.center}", True, 'white'), (10, 72))
 
     py.display.flip()
     clock.tick(1000)
+
