@@ -58,17 +58,18 @@ class Player(py.sprite.Sprite):
         if key[py.K_SPACE]:
             self.vel[1] = -10
         
-    def move(self, tiles):
+    def move(self, chunks):
         self.y += self.vel[1] * self.dt
         self.rect.y = self.y
 
-        for tile in tiles:
-            if tile.rect.colliderect(self.rect):
-                if self.vel[1] > 0:
-                    self.y = tile.rect.y - self.rect.h
-                elif self.vel[1] < 0:
-                    self.y = tile.rect.bottom
-                self.vel[1] = 0
+        for chunk in chunks:
+            for tile in chunk:
+                if tile.rect.colliderect(self.rect):
+                    if self.vel[1] > 0:
+                        self.y = tile.rect.y - self.rect.h
+                    elif self.vel[1] < 0:
+                        self.y = tile.rect.bottom
+                    self.vel[1] = 0
         
         self.rect.y = self.y
 
@@ -76,12 +77,14 @@ class Player(py.sprite.Sprite):
         self.x += self.vel[0] * self.dt
         self.rect.x = self.x
         
-        for tile in tiles:
-            if tile.rect.colliderect(self.rect):
-                if self.vel[0] > 0:
-                    self.x = tile.rect.x - self.rect.w
-                elif self.vel[0] < 0:
-                    self.x = tile.rect.right
+        for chunk in chunks:
+            for tile in chunk:
+                if tile.rect.colliderect(self.rect):
+                    if self.vel[0] > 0:
+                        self.x = tile.rect.x - self.rect.w
+                    elif self.vel[0] < 0:
+                        self.x = tile.rect.right
+
         self.rect.x = self.x
         
     def render(self, camera_offset):
@@ -104,7 +107,6 @@ font = py.font.Font(None, 32)
 camera = Camera()
 player = Player((0, -5), 24)
 tiles = {}
-background = []
 
 chunks = {
     # x;y : [chunk tiles]
@@ -122,10 +124,6 @@ col = 30
 for x in range(row):
     for y in range(col):
         tiles[str(x) + ';' + str(y)] = Tile((x, y), 48, random.choice([(155, 105, 50), (56, 214, 125)]))
-        # print(str(x) + ';' + str(y))
-
-        # if random.randint(0, 100) == 0:
-        #     background.append(Tile((x, y-y//20), random.choice([48, 64, 128]), random.choice([(192, 168, 127), (56, 214, 125)])))
 
 # pre organize chunk
 for loc in tiles:
@@ -152,7 +150,8 @@ while True:
     camera.update(player, dt)
 
     player.update(dt)
-    for offset in [
+
+    neighbor_offsets = [
             str(player.rect.x // chunk_size[0] - 1) + ';' + str(player.rect.y // chunk_size[1] - 1), # topleft chunk
             str(player.rect.x // chunk_size[0]) + ';' + str(player.rect.y // chunk_size[1] - 1), # top chunk
             str(player.rect.x // chunk_size[0] + 1) + ';' + str(player.rect.y // chunk_size[1] - 1), # topright chunk
@@ -164,21 +163,18 @@ while True:
             str(player.rect.x // chunk_size[0] - 1) + ';' + str(player.rect.y // chunk_size[1] + 1), # bottomleft chunk
             str(player.rect.x // chunk_size[0]) + ';' + str(player.rect.y // chunk_size[1] + 1), # bottom chunk
             str(player.rect.x // chunk_size[0] + 1) + ';' + str(player.rect.y // chunk_size[1] + 1) # bottomright chunk
-            ]:
+            ]
+
+    collision_chunks = []
+    for offset in neighbor_offsets:
         try:
             screen.blits([tile.render(camera.true_scroll) for tile in chunks[offset]])
         except:
             pass
+        collision_chunks.append(chunks.get(offset, []))
     
     # player collision with only tiles around player (chunks)
-    try:
-        player.move(chunks[str(player.rect.x // chunk_size[0]) + ';' + str(player.rect.y // chunk_size[1] + 1)])
-    except:
-        player.y += player.vel[1] * player.dt
-        player.rect.y = player.y
-
-        player.x += player.vel[0] * player.dt
-        player.rect.x = player.x
+    player.move(collision_chunks)
 
     player.render(camera.true_scroll)
 
@@ -186,4 +182,4 @@ while True:
     screen.blit(font.render(f"Tiles: {len(tiles)}", True, 'white'), (10, 42))
 
     py.display.flip()
-    clock.tick(3000)
+    clock.tick(1000)
